@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>  
+<head>
+<style>
+html, body, #map {width: 100%; height: 100%; margin: 0; padding: 0;} 
+</style>
+<title>Warszawa Live - Mapa Autobusów</title>
+<link rel="icon" type="image/ico" href="pwlogo.ico"/>
+<meta charset="utf-8"/>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    // 1. Inicjalizacja Mapy
+    var mymap = L.map('map', {maxZoom:20}).setView([52.2297, 21.0122], 13);
+    
+    var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    });
+    osm.addTo(mymap);
+
+    // 2. Konfiguracja API
+    const API_KEY = 'd8e69a5f-3dbb-440b-a1ab-e969194f5591'; 
+    const RESOURCE_ID = 'f2e5503e-927d-4ad3-9500-4ab9e55deb59';
+    // WAŻNE: Proxy CORS jest konieczne, aby przeglądarka pozwoliła pobrać dane z innego serwera
+    // Bez proxy, bo wtyczka załatwi sprawę
+        // 3. Warstwa dla autobusów (LayerGroup pozwala łatwo usuwać stare znaczniki)
+    var busesLayer = L.layerGroup().addTo(mymap);
+
+    // Dodajemy kontrolkę warstw
+    var baseLayers = { "OpenStreetMap": osm };
+    var overlays = { "Autobusy": busesLayer };
+    L.control.layers(baseLayers, overlays).addTo(mymap);
+    L.control.scale().addTo(mymap);
+
+    // 4. Funkcja pobierająca i rysująca autobusy
+    function updateBuses() {
+        console.log("Pobieram dane o autobusach...");
+        
+        // Konstrukcja URL (Proxy + API Warszawy)
+        // Bez proxy, bo wtyczka załatwi sprawę
+    const url = `https://withered-art-f355.adas-szczesniak.workers.dev/?resource_id=${RESOURCE_ID}&apikey=${API_KEY}&type=1`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.result || typeof data.result === 'string') {
+                    console.error("Błąd API:", data);
+                    return;
+                }
+
+                // Wyczyszczenie starych pozycji
+                busesLayer.clearLayers();
+
+                // Przetworzenie każdego autobusu
+                data.result.forEach(bus => {
+                    var lat = parseFloat(bus.Lat);
+                    var lon = parseFloat(bus.Lon);
+                    var line = bus.Lines;
+                    
+                    // Rysujemy kółko (CircleMarker jest wydajniejszy niż zwykły Marker przy dużej liczbie punktów)
+                    var marker = L.circleMarker([lat, lon], {
+                        radius: 5,
+                        fillColor: "#ff0000", // Czerwony jak warszawski autobus
+                        color: "#000",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    });
+
+                    // Dodajemy tooltip (dymek) z numerem linii
+                    marker.bindTooltip(`<b>Linia: ${line}</b><br>Brygada: ${bus.Brigade}`);
+                    
+                    // Dodajemy do warstwy
+                    marker.addTo(busesLayer);
+                });
+                
+                console.log(`Zaktualizowano ${data.result.length} autobusów.`);
+            })
+            .catch(error => console.error("Błąd pobierania:", error));
+    }
+
+    // 5. Uruchomienie
+    updateBuses(); // Pierwsze uruchomienie od razu
+    setInterval(updateBuses, 10000); // Odświeżanie co 10 sekund
+
+    mymap.attributionControl.setPrefix('Leaflet | Dane: UM Warszawa');
+
+</script>
+</body>
+</html>
