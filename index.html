@@ -29,6 +29,50 @@
         margin-top: 60px; 
     }
 
+    /* --- LOADING SCREEN --- */
+    #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.95);
+        z-index: 9999; /* Musi być nad wszystkim */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    #loading-screen h1 {
+        font-size: 36px;
+        color: #333;
+        margin-bottom: 10px;
+    }
+
+    #loading-screen p {
+        font-size: 18px;
+        color: #666;
+        margin-top: 15px;
+        font-weight: bold;
+    }
+
+    /* Animacja kręcącego się kółka */
+    .loader {
+        border: 8px solid #f3f3f3;
+        border-top: 8px solid #d90000; /* Czerwony kolor pasujący do reszty */
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
     /* --- STYLE PANELU FILTRÓW --- */
     
     #filter-btn {
@@ -142,50 +186,116 @@
 <meta charset="utf-8"/>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+<link rel='stylesheet' href='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css' />
+
 </head>
 
 <body>
+<div id="loading-screen">
+    <h1>Warsaw buses live 🚌</h1>
+    <div class="loader"></div>
+    <p>Ładowanie danych...</p>
+</div>
+
 <div id="map"></div>
 
 <div id="map-title">Warsaw buses live 🚌</div>
 
-<button id="filter-btn" onclick="toggleMenu()">Filtruj Linie</button>
+<button id="filter-btn" onclick="toggleMenu()">Line filter</button>
 
 <div id="filter-panel">
     <div class="panel-header">
-        <h3>Wybierz linie</h3>
+        <h3>Choose line:</h3>
         <button class="close-btn" onclick="toggleMenu()">×</button>
     </div>
     <div class="filter-actions">
-        <button onclick="clearFilters()" class="clear-btn">Pokaż wszystkie</button>
+        <button onclick="clearFilters()" class="clear-btn">Show all</button>
     </div>
     <div id="lines-container">Ładowanie linii...</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.js" charset="utf-8"></script>
+<script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js'></script>
 
 <script>
     // 1. Inicjalizacja Mapy
-    var mymap = L.map('map', {maxZoom:20}).setView([52.2297, 21.0122], 13);
+    var bounds = [
+        [51.90, 20.35], // Współrzędne dolnego lewego rogu (SW)
+        [52.60, 21.70]  // Współrzędne górnego prawego rogu (NE)
+    ];
+
+    var mymap = L.map('map', {
+        zoomControl: false,     // WAŻNE: Wyłączamy domyślny zoom, aby dodać go ręcznie pod fullscreenem
+        maxZoom: 22,            
+        minZoom: 11,            
+        maxBounds: bounds,      
+        maxBoundsViscosity: 1.0 
+    }).setView([52.2297, 21.0122], 13);
     
-    var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+   var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 22,       // Pozwalamy na zoom 22 (taki jak w satelicie)
+        maxNativeZoom: 19  // WAŻNE: Informujemy, że kafelki kończą się na 19. Powyżej tego poziomu Leaflet je przeskaluje.
     });
+
+    var satelita = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        maxZoom: 22,
+        maxNativeZoom: 19
+    });
+
     osm.addTo(mymap);
+
+    // 1. Dodaj Fullscreen (będzie na samej górze)
+    mymap.addControl(new L.Control.Fullscreen({
+        position: 'topleft'
+    }));
+
+    // 2. Dodaj ręcznie kontrolę Zoom (trafi pod spód)
+    L.control.zoom({
+        position: 'topleft'
+    }).addTo(mymap);
 
     // 2. Konfiguracja API
     const API_KEY = 'd8e69a5f-3dbb-440b-a1ab-e969194f5591'; 
     const RESOURCE_ID = 'f2e5503e-927d-4ad3-9500-4ab9e55deb59';
     const WORKER_URL = 'https://withered-art-f355.adas-szczesniak.workers.dev/';
 
+    // --- NOWE ZMIENNE DO OBSŁUGI PRZYSTANKÓW ---
+    var linesToStops = {};
+    var stopsData = null;
+    var stopsLayer = null;
+
+    // --- WCZYTYWANIE PLIKÓW LOKALNYCH ---
+    // Używamy Promise.all, aby pobrać oba pliki równolegle
+    Promise.all([
+        fetch('stops/lines_stops.json').then(r => r.json()),
+        fetch('stops/stops.geojson').then(r => r.json())
+    ]).then(([lines, geo]) => {
+        linesToStops = lines;
+        stopsData = geo;
+        console.log("Załadowano dane o przystankach i liniach.");
+    }).catch(err => console.error("Błąd wczytywania plików lokalnych:", err));
+
     // 3. Warstwa dla autobusów
     var busesLayer = L.layerGroup().addTo(mymap);
 
     // Dodajemy kontrolkę warstw
-    var baseLayers = { "OpenStreetMap": osm };
-    var overlays = { "Autobusy": busesLayer };
+    var baseLayers = { 
+        "Mapa OpenStreetMap": osm,
+        "Satelite map (Esri)": satelita
+    };
+    var overlays = { "Buses": busesLayer };
     
     L.control.layers(baseLayers, overlays).addTo(mymap);
+    
+    L.control.locate({
+        position: 'topleft',
+        strings: { title: "Show my location" }
+    }).addTo(mymap);
+
     L.control.scale().addTo(mymap);
 
     // --- LOGIKA FILTROWANIA ---
@@ -206,12 +316,18 @@
         }
         renderTiles();     
         drawMap(lastBusData); 
+        
+        // NOWE: Aktualizuj przystanki
+        updateStopsOnMap();
     }
 
     function clearFilters() {
         selectedLines.clear();
         renderTiles();
         drawMap(lastBusData);
+        
+        // NOWE: Wyczyść przystanki (funkcja sama usunie warstwę, gdy selectedLines jest puste)
+        updateStopsOnMap();
     }
 
     function generateTiles(allLines) {
@@ -270,6 +386,9 @@
                 generateTiles(currentLines);
 
                 drawMap(data.result);
+
+                // --- DODAJ TO: Ukryj loading screen po załadowaniu danych ---
+                document.getElementById('loading-screen').style.display = 'none';
                 
                 console.log(`Pobrano ${data.result.length} pojazdów.`);
             })
@@ -299,17 +418,57 @@
                 fillOpacity: 0.8
             });
 
-            marker.bindTooltip(`<b>Linia: ${line}</b><br>Brygada: ${bus.Brigade}`);
+            marker.bindTooltip(`<b>Linia: ${line}</b><br>Numer boczny pojazdu: ${bus.VehicleNumber}`);
             marker.addTo(busesLayer);
         });
+    }
+
+    // --- NOWA FUNKCJA: RYSOWANIE PRZYSTANKÓW DLA WYBRANYCH LINII ---
+    function updateStopsOnMap() {
+        // 1. Wyczyść poprzednią warstwę przystanków
+        if (stopsLayer) {
+            mymap.removeLayer(stopsLayer);
+            stopsLayer = null;
+        }
+
+        // 2. Jeśli nie wybrano żadnej linii lub dane się nie wczytały - nic nie rób
+        if (selectedLines.size === 0 || !stopsData || !linesToStops) {
+            return;
+        }
+
+        // 3. Zbierz wszystkie ID przystanków dla zaznaczonych linii
+        const validStopIds = new Set();
+        selectedLines.forEach(line => {
+            if (linesToStops[line]) {
+                linesToStops[line].forEach(stopId => validStopIds.add(stopId));
+            }
+        });
+
+        // 4. Stwórz warstwę GeoJSON tylko z pasującymi przystankami
+        stopsLayer = L.geoJSON(stopsData, {
+            filter: function(feature) {
+                // Sprawdzamy czy ID przystanku (z geojsona) jest na liście przystanków linii
+                return validStopIds.has(feature.properties.stop_id);
+            },
+            pointToLayer: function(feature, latlng) {
+                return L.circleMarker(latlng, {
+                    radius: 4,          // Mniejsze kropki niż autobusy
+                    fillColor: "blue",  // Inny kolor (niebieski)
+                    color: "#fff",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.6
+                }).bindPopup(`<b>${feature.properties.stop_name}</b>`);
+            }
+        }).addTo(mymap);
     }
 
     // 6. Uruchomienie
     updateBuses(); 
     setInterval(updateBuses, 10000); 
 
-    mymap.attributionControl.setPrefix('Leaflet | Dane: UM Warszawa');
-
+    mymap.attributionControl.setPrefix('Leaflet | Dane: UM Warszawa | Created by Adas Szczęśniak');
+    
 </script>
 </body>
 </html>
