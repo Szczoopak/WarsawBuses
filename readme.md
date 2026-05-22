@@ -24,7 +24,7 @@ W pełni responsywna, renderowana w czasie rzeczywistym mapa pozycji warszawskic
 
 Projekt został podzielony na moduły dla zachowania czystości kodu i łatwiejszego utrzymania:
 
-\`\`\`text
+```text
 📂 WarsawBuses/
 ├── 📂 assets/       # Ikony i grafiki (np. favicon)
 ├── 📂 css/          # Arkusze stylów (style.css)
@@ -32,7 +32,7 @@ Projekt został podzielony na moduły dla zachowania czystości kodu i łatwiejs
 ├── 📂 js/           # Główna logika aplikacji (app.js)
 ├── 📄 index.html    # Czysty szkielet aplikacji
 └── 📄 README.md     # Dokumentacja projektu
-\`\`\`
+```
 
 ## 🚀 Jak uruchomić to lokalnie?
 
