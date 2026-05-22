@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pl">  
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warsaw buses - live map</title>
+    
+    <link rel="icon" type="image/ico" href="assets/pwlogo.ico"/>
+    
+    <link rel="stylesheet" href="css/style.css"/>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+</head>
+
+<body>
+    <div id="loading-screen">
+        <h1>Warsaw buses live 🚌</h1>
+        <div class="loader"></div>
+        <p>Ładowanie danych...</p>
+    </div>
+
+    <div id="map"></div>
+    <div id="map-title">Warsaw buses live 🚌</div>
+    <button id="filter-btn" onclick="toggleMenu()">Line filter</button>
+
+    <div id="filter-panel">
+        <div class="panel-header">
+            <h3>Choose line:</h3>
+            <button class="close-btn" onclick="toggleMenu()">×</button>
+        </div>
+        <div class="filter-actions">
+            <button onclick="clearFilters()" class="clear-btn">Show all</button>
+        </div>
+        <div id="lines-container">Ładowanie linii...</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.js" charset="utf-8"></script>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
