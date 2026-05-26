@@ -20,7 +20,7 @@ W pełni responsywna, renderowana w czasie rzeczywistym mapa pozycji warszawskic
 * **Mapy:** Leaflet.js, OpenStreetMap, kafelki satelitarne Esri.
 * **Backend / Proxy:** Cloudflare Workers (Edge Computing).
 
-## 📸 Wygląd aplikacji
+## 📸 Prezentacja aplikacji
 ![Zrzut ekranu programu](assets/screenshot.png)
 
 ## 📁 Struktura Projektu
