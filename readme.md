@@ -21,6 +21,7 @@ W pełni responsywna, renderowana w czasie rzeczywistym mapa pozycji warszawskic
 * **Backend / Proxy:** Cloudflare Workers (Edge Computing).
 
 ## 📸 Prezentacja aplikacji
+
 ![Zrzut ekranu programu](assets/screenshot.png)
 
 ## 📁 Struktura Projektu
